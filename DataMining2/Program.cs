@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.VisualBasic.FileIO;
+using System.Linq;
+using MoreLinq;
 
 namespace DataMining
 {
@@ -10,8 +12,25 @@ namespace DataMining
         public static List<int[]> fileContent = new List<int[]>();
         static void Main()
         {
-            initFile("..\\..\\optAll.txt");
-            writeToFileRandom();
+            //initFile("..\\..\\opt0.txt");
+            //writeToFileRandom();
+            //writeToFileHalf("half0");
+            //for (int i = 1; i < 10; i++)
+            //{
+            //    fileContent = new List<int[]>();
+            //    initFile("..\\..\\opt"+i+".txt");
+            //    writeToFileHalf("half"+i);
+            //}
+            //for (int i = 0; i < 10; i++)
+            //{
+            //    fileContent = new List<int[]>();
+            //    initFile("..\\..\\half" + i + ".txt");
+            //    Console.WriteLine("CORRELATIONS FOR FILE " + i);
+            //    allCorrelations();
+            //    Console.WriteLine("");
+            //}
+            //initFile("..\\..\\optAll.txt");
+            //selectFields(new int[33] { 36, 28, 19, 20, 62, 45, 26, 18, 41, 10, 21, 5, 54, 42, 60, 53, 35, 50, 29, 37, 43, 33, 46, 6, 27, 38, 44, 2,34, 3, 59, 13, 14  }, "all5Base");
             Console.WriteLine("done");
         }
 
@@ -49,12 +68,16 @@ namespace DataMining
             }
         }
 
-        private static void selectFields(int field1, int field2)
+        private static void selectFields(int [] fields, string fileName)
         {
-            StreamWriter writer = new StreamWriter(@"..\\..\\spambaseReduced.data");
+            StreamWriter writer = new StreamWriter(@"..\\..\\" + fileName+ ".txt");
             foreach(var line in fileContent)
             {
-                writer.WriteLine(line[field1] + "," + line[field2] + "," + line[line.Length - 1]);
+                foreach (int field in fields)
+                {
+                    writer.Write(line[field] + " ");
+                }
+                writer.WriteLine(line[line.Length - 1]);
             }
             writer.Close();
         }
@@ -75,6 +98,106 @@ namespace DataMining
                 fileContent.RemoveAt(line);
             }
             writer.Close();
+        }
+
+        private static void writeToFileHalf(string fileName)
+        {
+            StreamWriter writer = new StreamWriter(@"..\\..\\" + fileName + ".txt");
+            for (int j = 0; j < fileContent.Count/2; j++)
+            {
+                int[] temp = fileContent[j];
+                for (int i = 0; i < temp.Length - 1; i++)
+                {
+                    writer.Write(temp[i] + " ");
+                }
+                writer.WriteLine(temp[temp.Length - 1]);
+            }
+            writer.Close();
+        }
+
+        private static void allCorrelations()
+        {
+
+            if (fileContent.Count > 0)
+            {
+                double[] correlations = new double[fileContent[0].Length];
+                for (int i = 0; i < fileContent[0].Length - 1; i++)
+                {
+                    correlations[i] = pearsonCorrelationOf(i, fileContent[0].Length - 1);
+                    //Console.WriteLine("Correlation for" + i + " is: " + correlations[i]);
+                }
+                //Array.Sort(correlations);
+                //Console.WriteLine(string.Join(",", correlations));
+                getTop(correlations, 5);
+            }
+        }
+
+        private static void getTop(double[] list, int size)
+        {
+            Dictionary<int, double> bestValues = new Dictionary<int, double>();
+            int i = 0;
+            for (i = 0; (i < size && i < list.Length); i++)
+            {
+                bestValues.Add(i, list[i]);
+            }
+            if (size < list.Length)
+            {
+                for (i = size; i < list.Length; i++)
+                {
+                    KeyValuePair<int, double> minBestValue = bestValues.MinBy(kvp => Math.Abs(kvp.Value));
+                    if (Math.Abs(list[i]) > Math.Abs(minBestValue.Value))
+                    {
+                        bestValues.Add(i, list[i]);
+                        bestValues.Remove(minBestValue.Key);
+                    }
+                }
+            }
+            //int[] fields = new int[size];
+            //i = 0;
+            foreach(KeyValuePair<int, double>  kvp in bestValues)
+            {
+                Console.WriteLine("Field " + kvp.Key + ": " + kvp.Value);
+                //fields[i++] = kvp.Key;
+            }
+            //return fields;
+        }
+
+        private static double pearsonCorrelationOf(int field1, int field2)
+        {
+            double mean1 = meanOfField(field1);
+            double mean2 = meanOfField(field2);
+            double std1 = stdOfField(field1);
+            double std2 = stdOfField(field2);
+            double sum = 0;
+            if (std1 != 0 && std2 != 0)
+            {
+                foreach (int[] row in fileContent)
+                {
+                    sum += ((row[field1] - mean1) / std1) * ((row[field2] - mean2) / std2);
+                }
+            }
+            return sum / (fileContent.Count - 1);
+        }
+
+        private static double stdOfField(int field)
+        {
+            double mean = meanOfField(field);
+            double sum = 0;
+            foreach(int[] row in fileContent)
+            {
+                sum += (row[field] - mean) * (row[field] - mean);
+            }
+            return Math.Sqrt( sum / (fileContent.Count - 1));
+        }
+
+        private static double meanOfField(int field)
+        {
+            double sum = 0;
+            foreach(int[] row in fileContent)
+            {
+                sum += row[field];
+            }
+            return sum / fileContent.Count;
         }
 
         /*
